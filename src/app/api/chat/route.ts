@@ -1,14 +1,68 @@
 import { anthropic } from "@ai-sdk/anthropic";
 import { streamText } from "ai";
 import { NextRequest } from "next/server";
-import { AIModel } from "@/types/chat";
+import { AIModel, Attachment } from "@/types/chat";
 
 export const maxDuration = 60;
 
+type ApiMessageContent =
+  | { type: "text"; text: string }
+  | { type: "image"; image: string; mimeType: string }
+  | { type: "file"; data: string; mimeType: string; filename?: string };
+
+interface ApiMessage {
+  role: "user" | "assistant";
+  content: string | ApiMessageContent[];
+}
+
 interface ChatRequestBody {
-  messages: { role: "user" | "assistant"; content: string }[];
+  messages: Array<{
+    role: "user" | "assistant";
+    content: string;
+    attachments?: Attachment[];
+  }>;
   model?: AIModel;
   systemPrompt?: string;
+}
+
+function buildApiMessages(messages: ChatRequestBody["messages"]): ApiMessage[] {
+  return messages.map((msg) => {
+    if (!msg.attachments || msg.attachments.length === 0) {
+      return { role: msg.role, content: msg.content };
+    }
+
+    const contentParts: ApiMessageContent[] = [];
+
+    // Add text first
+    if (msg.content.trim()) {
+      contentParts.push({ type: "text", text: msg.content });
+    }
+
+    // Add attachments
+    for (const att of msg.attachments) {
+      if (att.type === "image") {
+        contentParts.push({
+          type: "image",
+          image: att.base64,
+          mimeType: att.mimeType,
+        });
+      } else if (att.type === "document") {
+        contentParts.push({
+          type: "file",
+          data: att.base64,
+          mimeType: att.mimeType,
+          filename: att.name,
+        });
+      }
+    }
+
+    // Fallback text if no content
+    if (contentParts.length === 0) {
+      return { role: msg.role, content: msg.content };
+    }
+
+    return { role: msg.role, content: contentParts };
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -28,17 +82,19 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Messages requis" }, { status: 400 });
   }
 
+  const apiMessages = buildApiMessages(messages);
+
   const result = streamText({
     model: anthropic(model),
     system: systemPrompt,
-    messages,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    messages: apiMessages as any,
     maxOutputTokens: 4096,
     temperature: 0.7,
   });
 
   const encoder = new TextEncoder();
 
-  // Use fullStream to intercept error events before they reach the client
   const readableStream = new ReadableStream({
     async start(controller) {
       try {
@@ -46,12 +102,10 @@ export async function POST(req: NextRequest) {
           if (part.type === "text-delta") {
             controller.enqueue(encoder.encode(part.text));
           } else if (part.type === "error") {
-            // Error event from the AI SDK
             const errMsg =
               part.error instanceof Error
                 ? part.error.message
                 : String(part.error);
-            // Send a special marker so the client knows it's an error
             controller.enqueue(encoder.encode(`\x00ERR:${errMsg}`));
             controller.close();
             return;

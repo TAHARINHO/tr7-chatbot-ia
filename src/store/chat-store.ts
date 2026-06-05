@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { Conversation, Message, AIModel, DEFAULT_SYSTEM_PROMPT } from "@/types/chat";
+import { Conversation, Message, AIModel, DEFAULT_SYSTEM_PROMPT, Attachment } from "@/types/chat";
 import { nanoid } from "nanoid";
 
 interface ChatStore {
@@ -12,11 +12,13 @@ interface ChatStore {
   systemPrompt: string;
   sidebarOpen: boolean;
 
-  // Actions
   createConversation: () => string;
   selectConversation: (id: string) => void;
   deleteConversation: (id: string) => void;
-  addMessage: (conversationId: string, message: Omit<Message, "id" | "createdAt">) => Message;
+  addMessage: (
+    conversationId: string,
+    message: Omit<Message, "id" | "createdAt">
+  ) => Message;
   updateLastAssistantMessage: (conversationId: string, content: string) => void;
   updateConversationTitle: (conversationId: string, title: string) => void;
   setModel: (model: AIModel) => void;
@@ -55,8 +57,7 @@ export const useChatStore = create<ChatStore>()(
         return conv.id;
       },
 
-      selectConversation: (id) =>
-        set({ activeConversationId: id }),
+      selectConversation: (id) => set({ activeConversationId: id }),
 
       deleteConversation: (id) => {
         const { conversations, activeConversationId } = get();
@@ -110,15 +111,10 @@ export const useChatStore = create<ChatStore>()(
       },
 
       setModel: (model) => set({ selectedModel: model }),
-
       setSystemPrompt: (prompt) => set({ systemPrompt: prompt }),
-
-      toggleSidebar: () =>
-        set((s) => ({ sidebarOpen: !s.sidebarOpen })),
-
+      toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       clearConversations: () =>
         set({ conversations: [], activeConversationId: null }),
-
       getActiveConversation: () => {
         const { conversations, activeConversationId } = get();
         return conversations.find((c) => c.id === activeConversationId);
@@ -136,3 +132,27 @@ export const useChatStore = create<ChatStore>()(
     }
   )
 );
+
+// Helper to create attachment from File object (client-side only)
+export async function fileToAttachment(file: File): Promise<Attachment> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // result is "data:image/jpeg;base64,XXXXX"
+      const base64 = result.split(",")[1];
+      const preview = file.type.startsWith("image/") ? result : undefined;
+      resolve({
+        id: nanoid(),
+        type: file.type.startsWith("image/") ? "image" : "document",
+        name: file.name,
+        mimeType: file.type,
+        base64,
+        preview,
+        size: file.size,
+      });
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}

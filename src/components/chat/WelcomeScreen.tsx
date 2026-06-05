@@ -1,27 +1,44 @@
 "use client";
 
-import { SparklesIcon, CodeIcon, PenIcon, SearchIcon, LightbulbIcon } from "lucide-react";
+import { CodeIcon, PenIcon, ImageIcon, LightbulbIcon, FileTextIcon, ZapIcon } from "lucide-react";
+import { AIAvatar } from "./Avatars";
 
 const SUGGESTIONS = [
   {
     icon: <CodeIcon className="h-4 w-4" />,
-    title: "Génère du code",
-    prompt: "Écris-moi une fonction Python qui trie une liste d'objets par date.",
+    title: "Générer du code",
+    prompt: "Écris une fonction TypeScript qui valide un email et retourne les erreurs.",
+    color: "bg-blue-50 text-blue-600 group-hover:bg-blue-100",
   },
   {
     icon: <PenIcon className="h-4 w-4" />,
-    title: "Rédige du contenu",
-    prompt: "Rédige un email professionnel pour présenter TR7 Agency à un nouveau prospect.",
+    title: "Rédiger du contenu",
+    prompt: "Rédige un email de prospection pour présenter TR7 Agency à un client.",
+    color: "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100",
   },
   {
-    icon: <SearchIcon className="h-4 w-4" />,
-    title: "Analyse & synthèse",
-    prompt: "Explique-moi les avantages et inconvénients des architectures microservices.",
+    icon: <ImageIcon className="h-4 w-4" />,
+    title: "Analyser une image",
+    prompt: "Que vois-tu dans cette image ?",
+    color: "bg-pink-50 text-pink-600 group-hover:bg-pink-100",
   },
   {
     icon: <LightbulbIcon className="h-4 w-4" />,
-    title: "Stratégie & idées",
+    title: "Brainstorming",
     prompt: "Donne-moi 5 idées innovantes pour automatiser le workflow d'une agence digitale.",
+    color: "bg-amber-50 text-amber-600 group-hover:bg-amber-100",
+  },
+  {
+    icon: <FileTextIcon className="h-4 w-4" />,
+    title: "Résumer un document",
+    prompt: "Résume ce document en 5 points clés.",
+    color: "bg-violet-50 text-violet-600 group-hover:bg-violet-100",
+  },
+  {
+    icon: <ZapIcon className="h-4 w-4" />,
+    title: "Stratégie rapide",
+    prompt: "Quelles sont les 3 meilleures stratégies pour améliorer la rétention client ?",
+    color: "bg-orange-50 text-orange-600 group-hover:bg-orange-100",
   },
 ];
 
@@ -31,47 +48,56 @@ interface WelcomeScreenProps {
 
 export function WelcomeScreen({ onSuggestion }: WelcomeScreenProps) {
   return (
-    <div className="flex flex-col items-center justify-center h-full px-6 py-12">
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-180px)] px-6 py-12 select-none">
       {/* Hero */}
-      <div className="flex flex-col items-center gap-4 mb-12">
-        <div className="relative">
-          <div className="h-16 w-16 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center glow-violet">
-            <SparklesIcon className="h-8 w-8 text-primary" />
-          </div>
-          <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-primary animate-pulse" />
-        </div>
+      <div className="flex flex-col items-center gap-5 mb-10">
+        <AIAvatar size="lg" isActive />
         <div className="text-center">
-          <h2 className="text-2xl font-semibold tracking-tight text-foreground glow-text">
+          <h2 className="text-2xl font-bold tracking-tight gradient-text">
             TR7 ChatBot IA
           </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Propulsé par Claude · Prêt à vous assister
+          <p className="text-sm text-muted-foreground mt-1.5 max-w-xs text-center">
+            Propulsé par Claude · Analysez des images, des documents, et bien plus encore
           </p>
+        </div>
+
+        {/* Capability pills */}
+        <div className="flex flex-wrap justify-center gap-2 max-w-sm">
+          {["Vision IA", "Documents", "Code", "Streaming", "Multimodal"].map((pill) => (
+            <span
+              key={pill}
+              className="px-3 py-1 rounded-full text-xs font-medium bg-white border border-border text-muted-foreground shadow-sm"
+            >
+              {pill}
+            </span>
+          ))}
         </div>
       </div>
 
-      {/* Suggestions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xl">
+      {/* Suggestions grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-w-2xl">
         {SUGGESTIONS.map((s, i) => (
           <button
             key={i}
             onClick={() => onSuggestion(s.prompt)}
-            className="group flex items-start gap-3 p-4 rounded-xl border border-white/8 bg-white/3 hover:bg-white/6 hover:border-primary/25 transition-all duration-150 text-left"
+            className="group flex items-start gap-3 p-4 rounded-2xl border border-border bg-white hover:shadow-card-hover transition-all duration-200 text-left hover:-translate-y-0.5"
           >
-            <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary group-hover:bg-primary/20 transition-colors">
+            <div className={`flex-shrink-0 h-8 w-8 rounded-xl flex items-center justify-center transition-colors ${s.color}`}>
               {s.icon}
             </div>
-            <div>
-              <p className="text-sm font-medium text-foreground/80 group-hover:text-foreground transition-colors">
-                {s.title}
-              </p>
-              <p className="text-xs text-muted-foreground/50 mt-0.5 line-clamp-2">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground">{s.title}</p>
+              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">
                 {s.prompt}
               </p>
             </div>
           </button>
         ))}
       </div>
+
+      <p className="text-xs text-muted-foreground/40 mt-8 text-center">
+        Glissez-déposez une image ou un fichier dans la zone de texte pour l'analyser
+      </p>
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { useChatStore } from "@/store/chat-store";
+import { Attachment } from "@/types/chat";
 
 export function useChat(conversationId: string | null) {
   const [isStreaming, setIsStreaming] = useState(false);
@@ -9,7 +10,6 @@ export function useChat(conversationId: string | null) {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const {
-    conversations,
     selectedModel,
     systemPrompt,
     addMessage,
@@ -19,19 +19,17 @@ export function useChat(conversationId: string | null) {
   } = useChatStore();
 
   const sendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, attachments?: Attachment[]) => {
       let activeId = conversationId;
+      if (!activeId) activeId = createConversation();
 
-      if (!activeId) {
-        activeId = createConversation();
-      }
-
-      const userMsg = addMessage(activeId, { role: "user", content });
-
-      const assistantMsg = addMessage(activeId, {
-        role: "assistant",
-        content: "",
+      const userMsg = addMessage(activeId, {
+        role: "user",
+        content,
+        attachments,
       });
+
+      const assistantMsg = addMessage(activeId, { role: "assistant", content: "" });
 
       setStreamingMessageId(assistantMsg.id);
       setIsStreaming(true);
@@ -43,9 +41,14 @@ export function useChat(conversationId: string | null) {
         .getState()
         .conversations.find((c) => c.id === activeId);
 
+      // Build API messages — exclude the placeholder assistant message
       const apiMessages = (conv?.messages ?? [])
         .filter((m) => m.role !== "system" && m.id !== assistantMsg.id)
-        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+        .map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+          attachments: m.attachments,
+        }));
 
       try {
         const res = await fetch("/api/chat", {
@@ -61,8 +64,7 @@ export function useChat(conversationId: string | null) {
 
         if (!res.ok) {
           const errBody = await res.json().catch(() => ({}));
-          const errMsg = errBody?.error ?? `Erreur HTTP ${res.status}`;
-          updateLastAssistantMessage(activeId!, `⚠️ ${errMsg}`);
+          updateLastAssistantMessage(activeId!, `⚠️ ${errBody?.error ?? `Erreur HTTP ${res.status}`}`);
           return;
         }
 
@@ -75,15 +77,13 @@ export function useChat(conversationId: string | null) {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-
           const chunk = decoder.decode(value, { stream: true });
 
-          // Check for error marker sent by the API route
           if (chunk.includes("\x00ERR:")) {
             const errMsg = chunk.split("\x00ERR:")[1] ?? "Erreur inconnue";
             let displayMsg = `⚠️ ${errMsg}`;
             if (errMsg.includes("credit balance")) {
-              displayMsg = "⚠️ **Crédits Anthropic insuffisants.** Rechargez votre compte sur [console.anthropic.com/settings/plans](https://console.anthropic.com/settings/plans)";
+              displayMsg = "⚠️ **Crédits Anthropic insuffisants.**\n\nRechargez votre compte sur [console.anthropic.com/settings/plans](https://console.anthropic.com/settings/plans)";
             } else if (errMsg.includes("invalid") || errMsg.includes("auth")) {
               displayMsg = "⚠️ Clé API invalide. Vérifiez `ANTHROPIC_API_KEY`.";
             }
@@ -95,38 +95,21 @@ export function useChat(conversationId: string | null) {
           updateLastAssistantMessage(activeId!, fullContent);
         }
 
-        // Auto-generate title from first exchange
-        const currentConv = useChatStore
-          .getState()
-          .conversations.find((c) => c.id === activeId);
+        // Auto-title from first message
+        const currentConv = useChatStore.getState().conversations.find((c) => c.id === activeId);
         if (currentConv?.title === "Nouvelle conversation" && userMsg.content) {
-          const title = userMsg.content.slice(0, 50).trim();
-          updateConversationTitle(activeId!, title);
+          updateConversationTitle(activeId!, userMsg.content.slice(0, 50).trim());
         }
       } catch (err: unknown) {
-        if (err instanceof Error && err.name === "AbortError") {
-          // Streaming stopped by user — keep what we have
-        } else {
-          updateLastAssistantMessage(
-            activeId!,
-            "Une erreur est survenue. Veuillez réessayer."
-          );
-        }
+        if (err instanceof Error && err.name === "AbortError") return;
+        updateLastAssistantMessage(activeId!, "⚠️ Une erreur est survenue. Veuillez réessayer.");
       } finally {
         setIsStreaming(false);
         setStreamingMessageId(null);
         abortControllerRef.current = null;
       }
     },
-    [
-      conversationId,
-      selectedModel,
-      systemPrompt,
-      addMessage,
-      updateLastAssistantMessage,
-      updateConversationTitle,
-      createConversation,
-    ]
+    [conversationId, selectedModel, systemPrompt, addMessage, updateLastAssistantMessage, updateConversationTitle, createConversation]
   );
 
   const stopStreaming = useCallback(() => {

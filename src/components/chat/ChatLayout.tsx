@@ -14,15 +14,15 @@ export function ChatLayout() {
       {/* Sidebar */}
       <aside
         className={cn(
-          "flex flex-shrink-0 border-r border-white/8 bg-card/50 overflow-hidden transition-all duration-300",
-          sidebarOpen ? "w-[17.5rem]" : "w-14"
+          "flex flex-shrink-0 border-r border-border bg-white overflow-hidden transition-all duration-300 shadow-sm",
+          sidebarOpen ? "w-[17rem]" : "w-14"
         )}
       >
         <Sidebar />
       </aside>
 
-      {/* Main chat area */}
-      <main className="flex flex-col flex-1 min-w-0">
+      {/* Main */}
+      <main className="flex flex-col flex-1 min-w-0 bg-background">
         <ChatHeader />
         <ChatArea />
       </main>

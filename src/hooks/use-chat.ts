@@ -59,7 +59,12 @@ export function useChat(conversationId: string | null) {
           signal: controller.signal,
         });
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          const errMsg = errBody?.error ?? `Erreur HTTP ${res.status}`;
+          updateLastAssistantMessage(activeId!, `⚠️ ${errMsg}`);
+          return;
+        }
 
         const reader = res.body?.getReader();
         if (!reader) throw new Error("No stream reader");

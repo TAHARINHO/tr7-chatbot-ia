@@ -5,46 +5,65 @@ import { useChatStore } from "@/store/chat-store";
 import { MessageBubble } from "./MessageBubble";
 import { ChatInput } from "./ChatInput";
 import { WelcomeScreen } from "./WelcomeScreen";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useChat } from "@/hooks/use-chat";
 import { Attachment } from "@/types/chat";
 
 export function ChatArea() {
   const { getActiveConversation, activeConversationId } = useChatStore();
   const conversation = getActiveConversation();
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const { sendMessage, stopStreaming, isStreaming, streamingMessageId } = useChat(
     activeConversationId
   );
 
-  const scrollToBottom = useCallback(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottom = useCallback((smooth = true) => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: smooth ? "smooth" : "instant",
+      block: "end",
+    });
   }, []);
 
+  // Scroll immédiat au changement de conversation
   useEffect(() => {
-    scrollToBottom();
+    scrollToBottom(false);
+  }, [activeConversationId, scrollToBottom]);
+
+  // Scroll doux à chaque nouveau message
+  useEffect(() => {
+    scrollToBottom(true);
   }, [conversation?.messages.length, scrollToBottom]);
 
+  // Scroll pendant le streaming
   useEffect(() => {
-    if (isStreaming) scrollToBottom();
-  }, [isStreaming, scrollToBottom]);
+    if (isStreaming) {
+      const container = scrollContainerRef.current;
+      if (!container) return;
+      // Auto-scroll uniquement si l'utilisateur est déjà en bas
+      const isNearBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+      if (isNearBottom) scrollToBottom(false);
+    }
+  });
 
   const handleSend = useCallback(
-    (content: string, attachments?: Attachment[]) => {
-      sendMessage(content, attachments);
-    },
+    (content: string, attachments?: Attachment[]) => sendMessage(content, attachments),
     [sendMessage]
   );
 
   const messages = conversation?.messages ?? [];
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 bg-background">
-      <ScrollArea className="flex-1 scrollbar-thin">
-        <div className="max-w-3xl mx-auto w-full">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-background">
+      {/* Zone de messages — seule partie scrollable */}
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto scrollbar-thin"
+      >
+        <div className="max-w-3xl mx-auto w-full px-2">
           {messages.length === 0 ? (
-            <WelcomeScreen onSuggestion={(prompt) => handleSend(prompt)} />
+            <WelcomeScreen onSuggestion={(p) => handleSend(p)} />
           ) : (
             <div className="py-4 space-y-1">
               {messages.map((msg) => (
@@ -56,16 +75,16 @@ export function ChatArea() {
               ))}
             </div>
           )}
-          <div ref={bottomRef} className="h-4" />
+          {/* Ancre de scroll — toujours visible en bas */}
+          <div ref={messagesEndRef} className="h-2" />
         </div>
-      </ScrollArea>
+      </div>
 
-      <div className="max-w-3xl mx-auto w-full flex-shrink-0">
-        <ChatInput
-          onSend={handleSend}
-          onStop={stopStreaming}
-          isStreaming={isStreaming}
-        />
+      {/* Input fixe en bas — ne scroll pas */}
+      <div className="flex-shrink-0 bg-background border-t border-border/50">
+        <div className="max-w-3xl mx-auto w-full">
+          <ChatInput onSend={handleSend} onStop={stopStreaming} isStreaming={isStreaming} />
+        </div>
       </div>
     </div>
   );

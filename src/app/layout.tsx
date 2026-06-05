@@ -24,9 +24,10 @@ export default function RootLayout({
   return (
     <html
       lang="fr"
-      className={`${geistSans.variable} ${geistMono.variable} h-full`}
+      className={`${geistSans.variable} ${geistMono.variable}`}
+      style={{ height: "100dvh", overflow: "hidden" }}
     >
-      <body className="h-full antialiased">
+      <body style={{ height: "100dvh", overflow: "hidden" }} className="antialiased">
         <TooltipProvider delay={300}>{children}</TooltipProvider>
       </body>
     </html>

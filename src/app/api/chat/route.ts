@@ -1,7 +1,8 @@
 import { anthropic } from "@ai-sdk/anthropic";
+import { openai } from "@ai-sdk/openai";
 import { streamText } from "ai";
 import { NextRequest } from "next/server";
-import { AIModel, Attachment } from "@/types/chat";
+import { AIModel, Attachment, MODELS } from "@/types/chat";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -26,6 +27,14 @@ interface ChatRequestBody {
   systemPrompt?: string;
 }
 
+function getModelInstance(modelId: AIModel) {
+  const config = MODELS.find((m) => m.id === modelId);
+  if (config?.provider === "openai") {
+    return openai(modelId);
+  }
+  return anthropic(modelId);
+}
+
 function buildApiMessages(messages: ChatRequestBody["messages"]): ApiMessage[] {
   const result: ApiMessage[] = [];
 
@@ -33,22 +42,17 @@ function buildApiMessages(messages: ChatRequestBody["messages"]): ApiMessage[] {
     const hasText = msg.content.trim().length > 0;
     const hasAttachments = msg.attachments && msg.attachments.length > 0;
 
-    // Skip entirely empty messages — these cause "text content blocks must be non-empty"
     if (!hasText && !hasAttachments) continue;
-    // Skip stored error messages that were saved as assistant replies
     if (msg.role === "assistant" && msg.content.trim().startsWith("⚠️")) continue;
+    if (msg.role === "assistant" && msg.content.trim() === "_Génération arrêtée._") continue;
 
     if (!hasAttachments) {
-      // Plain text message — Anthropic requires non-empty string
       result.push({ role: msg.role, content: msg.content.trim() });
       continue;
     }
 
-    // Multimodal message
     const parts: ApiMessageContent[] = [];
-    if (hasText) {
-      parts.push({ type: "text", text: msg.content.trim() });
-    }
+    if (hasText) parts.push({ type: "text", text: msg.content.trim() });
     for (const att of msg.attachments!) {
       if (att.type === "image") {
         parts.push({ type: "image", image: att.base64, mimeType: att.mimeType });
@@ -56,61 +60,65 @@ function buildApiMessages(messages: ChatRequestBody["messages"]): ApiMessage[] {
         parts.push({ type: "file", data: att.base64, mimeType: att.mimeType, filename: att.name });
       }
     }
-    if (parts.length > 0) {
-      result.push({ role: msg.role, content: parts });
-    }
+    if (parts.length > 0) result.push({ role: msg.role, content: parts });
   }
 
-  // Enforce user/assistant alternation (Anthropic requirement)
+  // Enforce alternation
   const deduped: ApiMessage[] = [];
   for (const msg of result) {
     const last = deduped[deduped.length - 1];
     if (last && last.role === msg.role) {
-      deduped[deduped.length - 1] = msg; // keep latest of same role
+      deduped[deduped.length - 1] = msg;
     } else {
       deduped.push(msg);
     }
   }
-
-  // Must start with user
-  while (deduped.length > 0 && deduped[0].role !== "user") {
-    deduped.shift();
-  }
+  while (deduped.length > 0 && deduped[0].role !== "user") deduped.shift();
 
   return deduped;
 }
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-
-  if (!apiKey || apiKey === "your_anthropic_api_key_here") {
-    return Response.json({ error: "ANTHROPIC_API_KEY manquante." }, { status: 500 });
-  }
-
   const body: ChatRequestBody = await req.json();
   const { messages, model = "claude-sonnet-4-6", systemPrompt } = body;
+
+  const modelConfig = MODELS.find((m) => m.id === model);
+  const provider = modelConfig?.provider ?? "anthropic";
+
+  // Validate API key for the requested provider
+  if (provider === "anthropic") {
+    const key = process.env.ANTHROPIC_API_KEY;
+    if (!key || key === "your_anthropic_api_key_here") {
+      return Response.json({ error: "ANTHROPIC_API_KEY manquante." }, { status: 500 });
+    }
+  } else if (provider === "openai") {
+    const key = process.env.OPENAI_API_KEY;
+    if (!key || key === "your_openai_api_key_here") {
+      return Response.json({ error: "OPENAI_API_KEY manquante." }, { status: 500 });
+    }
+  }
 
   if (!messages || messages.length === 0) {
     return Response.json({ error: "Messages requis" }, { status: 400 });
   }
 
   const apiMessages = buildApiMessages(messages);
-
   if (apiMessages.length === 0) {
-    return Response.json({ error: "Aucun message valide à envoyer." }, { status: 400 });
+    return Response.json({ error: "Aucun message valide." }, { status: 400 });
   }
 
+  // o1 models don't support system prompts or temperature
+  const isReasoningModel = model === "o1" || model === "o1-mini";
+
   const result = streamText({
-    model: anthropic(model),
-    system: systemPrompt,
+    model: getModelInstance(model),
+    ...(isReasoningModel ? {} : { system: systemPrompt, temperature: 0.7 }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     messages: apiMessages as any,
-    maxOutputTokens: 4096,
-    temperature: 0.7,
+    maxOutputTokens: isReasoningModel ? 8192 : 4096,
   });
 
   const encoder = new TextEncoder();
-
   const readableStream = new ReadableStream({
     async start(controller) {
       try {

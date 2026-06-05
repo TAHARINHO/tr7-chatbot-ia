@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 import { AIModel, Attachment } from "@/types/chat";
 
 export const maxDuration = 60;
+export const dynamic = "force-dynamic";
 
 type ApiMessageContent =
   | { type: "text"; text: string }

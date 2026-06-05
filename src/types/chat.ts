@@ -39,11 +39,12 @@ export type AIModel =
   | "o1"
   | "o1-mini"
   // ── Google Gemini ──
+  | "gemini-3.5-flash"
+  | "gemini-3.1-pro-preview"
+  | "gemini-3-pro-preview"
   | "gemini-2.5-pro"
-  | "gemini-2.0-flash"
-  | "gemini-1.5-pro"
-  | "gemini-1.5-flash"
-  | "gemini-1.5-flash-8b";
+  | "gemini-2.5-flash"
+  | "gemini-2.0-flash";
 
 export interface ModelConfig {
   id: AIModel;
@@ -125,10 +126,46 @@ export const MODELS: ModelConfig[] = [
 
   // ─────────────── Google Gemini ───────────────
   {
+    id: "gemini-3.5-flash",
+    name: "Gemini 3.5 Flash",
+    description: "Le plus récent et rapide de Google",
+    badge: "Nouveau",
+    supportsVision: true,
+    provider: "google",
+    contextWindow: "1M",
+  },
+  {
+    id: "gemini-3.1-pro-preview",
+    name: "Gemini 3.1 Pro",
+    description: "Gemini 3ème gen — très puissant",
+    badge: "Pro",
+    supportsVision: true,
+    provider: "google",
+    contextWindow: "1M",
+  },
+  {
+    id: "gemini-3-pro-preview",
+    name: "Gemini 3 Pro",
+    description: "Raisonnement avancé, multimodal",
+    badge: "Recommandé",
+    supportsVision: true,
+    provider: "google",
+    contextWindow: "1M",
+  },
+  {
     id: "gemini-2.5-pro",
     name: "Gemini 2.5 Pro",
-    description: "Le plus puissant de Google",
-    badge: "Pro",
+    description: "Très capable, contexte long",
+    badge: "Capable",
+    supportsVision: true,
+    provider: "google",
+    contextWindow: "1M",
+  },
+  {
+    id: "gemini-2.5-flash",
+    name: "Gemini 2.5 Flash",
+    description: "Rapide et multimodal",
+    badge: "Rapide",
     supportsVision: true,
     provider: "google",
     contextWindow: "1M",
@@ -136,35 +173,8 @@ export const MODELS: ModelConfig[] = [
   {
     id: "gemini-2.0-flash",
     name: "Gemini 2.0 Flash",
-    description: "Rapide, multimodal, très capable",
-    badge: "Recommandé",
-    supportsVision: true,
-    provider: "google",
-    contextWindow: "1M",
-  },
-  {
-    id: "gemini-1.5-pro",
-    name: "Gemini 1.5 Pro",
-    description: "Contexte ultra-long (2M tokens)",
-    badge: "Long context",
-    supportsVision: true,
-    provider: "google",
-    contextWindow: "2M",
-  },
-  {
-    id: "gemini-1.5-flash",
-    name: "Gemini 1.5 Flash",
-    description: "Rapide et efficace",
-    badge: "Rapide",
-    supportsVision: true,
-    provider: "google",
-    contextWindow: "1M",
-  },
-  {
-    id: "gemini-1.5-flash-8b",
-    name: "Gemini 1.5 Flash-8B",
-    description: "Le plus léger et le moins cher",
-    badge: "Économique",
+    description: "Stable, polyvalent et efficace",
+    badge: "Stable",
     supportsVision: true,
     provider: "google",
     contextWindow: "1M",

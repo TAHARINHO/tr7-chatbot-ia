@@ -23,12 +23,7 @@ export function useChat(conversationId: string | null) {
       let activeId = conversationId;
       if (!activeId) activeId = createConversation();
 
-      const userMsg = addMessage(activeId, {
-        role: "user",
-        content,
-        attachments,
-      });
-
+      const userMsg = addMessage(activeId, { role: "user", content, attachments });
       const assistantMsg = addMessage(activeId, { role: "assistant", content: "" });
 
       setStreamingMessageId(assistantMsg.id);
@@ -37,25 +32,48 @@ export function useChat(conversationId: string | null) {
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
-      const conv = useChatStore
-        .getState()
-        .conversations.find((c) => c.id === activeId);
+      const conv = useChatStore.getState().conversations.find((c) => c.id === activeId);
 
-      // Build API messages — exclude the placeholder assistant message
-      const apiMessages = (conv?.messages ?? [])
+      // Build API messages :
+      // - Exclude current placeholder assistant message
+      // - Exclude empty content messages (leftover from failed attempts)
+      // - Exclude error messages stored as assistant responses (⚠️ prefix)
+      // - Ensure strict user/assistant alternation
+      const rawMessages = (conv?.messages ?? [])
         .filter((m) => m.role !== "system" && m.id !== assistantMsg.id)
-        .map((m) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-          attachments: m.attachments,
-        }));
+        .filter((m) => {
+          const txt = m.content.trim();
+          if (!txt && (!m.attachments || m.attachments.length === 0)) return false; // empty
+          if (m.role === "assistant" && txt.startsWith("⚠️")) return false; // stored error
+          return true;
+        });
+
+      // Enforce alternation: remove consecutive same-role messages (keep last)
+      const apiMessages: typeof rawMessages = [];
+      for (const msg of rawMessages) {
+        const last = apiMessages[apiMessages.length - 1];
+        if (last && last.role === msg.role) {
+          apiMessages[apiMessages.length - 1] = msg; // replace with latest
+        } else {
+          apiMessages.push(msg);
+        }
+      }
+
+      // Anthropic requires first message to be from user
+      while (apiMessages.length > 0 && apiMessages[0].role !== "user") {
+        apiMessages.shift();
+      }
 
       try {
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            messages: apiMessages,
+            messages: apiMessages.map((m) => ({
+              role: m.role,
+              content: m.content,
+              attachments: m.attachments,
+            })),
             model: selectedModel,
             systemPrompt,
           }),
@@ -83,8 +101,8 @@ export function useChat(conversationId: string | null) {
             const errMsg = chunk.split("\x00ERR:")[1] ?? "Erreur inconnue";
             let displayMsg = `⚠️ ${errMsg}`;
             if (errMsg.includes("credit balance")) {
-              displayMsg = "⚠️ **Crédits Anthropic insuffisants.**\n\nRechargez votre compte sur [console.anthropic.com/settings/plans](https://console.anthropic.com/settings/plans)";
-            } else if (errMsg.includes("invalid") || errMsg.includes("auth")) {
+              displayMsg = "⚠️ **Crédits Anthropic insuffisants.**\n\nRechargez sur [console.anthropic.com/settings/plans](https://console.anthropic.com/settings/plans)";
+            } else if (errMsg.includes("invalid_api_key") || errMsg.includes("authentication")) {
               displayMsg = "⚠️ Clé API invalide. Vérifiez `ANTHROPIC_API_KEY`.";
             }
             updateLastAssistantMessage(activeId!, displayMsg);
@@ -95,14 +113,22 @@ export function useChat(conversationId: string | null) {
           updateLastAssistantMessage(activeId!, fullContent);
         }
 
-        // Auto-title from first message
+        // Auto-title
         const currentConv = useChatStore.getState().conversations.find((c) => c.id === activeId);
         if (currentConv?.title === "Nouvelle conversation" && userMsg.content) {
           updateConversationTitle(activeId!, userMsg.content.slice(0, 50).trim());
         }
       } catch (err: unknown) {
-        if (err instanceof Error && err.name === "AbortError") return;
-        updateLastAssistantMessage(activeId!, "⚠️ Une erreur est survenue. Veuillez réessayer.");
+        if (err instanceof Error && err.name === "AbortError") {
+          // User stopped — keep partial content if any, else show neutral message
+          const currentConv = useChatStore.getState().conversations.find((c) => c.id === activeId);
+          const currentAssistant = currentConv?.messages.find((m) => m.id === assistantMsg.id);
+          if (!currentAssistant?.content) {
+            updateLastAssistantMessage(activeId!, "_Génération arrêtée._");
+          }
+          return;
+        }
+        updateLastAssistantMessage(activeId!, "⚠️ Une erreur réseau est survenue. Veuillez réessayer.");
       } finally {
         setIsStreaming(false);
         setStreamingMessageId(null);

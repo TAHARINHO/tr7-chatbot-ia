@@ -27,53 +27,64 @@ interface ChatRequestBody {
 }
 
 function buildApiMessages(messages: ChatRequestBody["messages"]): ApiMessage[] {
-  return messages.map((msg) => {
-    if (!msg.attachments || msg.attachments.length === 0) {
-      return { role: msg.role, content: msg.content };
+  const result: ApiMessage[] = [];
+
+  for (const msg of messages) {
+    const hasText = msg.content.trim().length > 0;
+    const hasAttachments = msg.attachments && msg.attachments.length > 0;
+
+    // Skip entirely empty messages — these cause "text content blocks must be non-empty"
+    if (!hasText && !hasAttachments) continue;
+    // Skip stored error messages that were saved as assistant replies
+    if (msg.role === "assistant" && msg.content.trim().startsWith("⚠️")) continue;
+
+    if (!hasAttachments) {
+      // Plain text message — Anthropic requires non-empty string
+      result.push({ role: msg.role, content: msg.content.trim() });
+      continue;
     }
 
-    const contentParts: ApiMessageContent[] = [];
-
-    // Add text first
-    if (msg.content.trim()) {
-      contentParts.push({ type: "text", text: msg.content });
+    // Multimodal message
+    const parts: ApiMessageContent[] = [];
+    if (hasText) {
+      parts.push({ type: "text", text: msg.content.trim() });
     }
-
-    // Add attachments
-    for (const att of msg.attachments) {
+    for (const att of msg.attachments!) {
       if (att.type === "image") {
-        contentParts.push({
-          type: "image",
-          image: att.base64,
-          mimeType: att.mimeType,
-        });
+        parts.push({ type: "image", image: att.base64, mimeType: att.mimeType });
       } else if (att.type === "document") {
-        contentParts.push({
-          type: "file",
-          data: att.base64,
-          mimeType: att.mimeType,
-          filename: att.name,
-        });
+        parts.push({ type: "file", data: att.base64, mimeType: att.mimeType, filename: att.name });
       }
     }
-
-    // Fallback text if no content
-    if (contentParts.length === 0) {
-      return { role: msg.role, content: msg.content };
+    if (parts.length > 0) {
+      result.push({ role: msg.role, content: parts });
     }
+  }
 
-    return { role: msg.role, content: contentParts };
-  });
+  // Enforce user/assistant alternation (Anthropic requirement)
+  const deduped: ApiMessage[] = [];
+  for (const msg of result) {
+    const last = deduped[deduped.length - 1];
+    if (last && last.role === msg.role) {
+      deduped[deduped.length - 1] = msg; // keep latest of same role
+    } else {
+      deduped.push(msg);
+    }
+  }
+
+  // Must start with user
+  while (deduped.length > 0 && deduped[0].role !== "user") {
+    deduped.shift();
+  }
+
+  return deduped;
 }
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey || apiKey === "your_anthropic_api_key_here") {
-    return Response.json(
-      { error: "ANTHROPIC_API_KEY manquante." },
-      { status: 500 }
-    );
+    return Response.json({ error: "ANTHROPIC_API_KEY manquante." }, { status: 500 });
   }
 
   const body: ChatRequestBody = await req.json();
@@ -84,6 +95,10 @@ export async function POST(req: NextRequest) {
   }
 
   const apiMessages = buildApiMessages(messages);
+
+  if (apiMessages.length === 0) {
+    return Response.json({ error: "Aucun message valide à envoyer." }, { status: 400 });
+  }
 
   const result = streamText({
     model: anthropic(model),
@@ -103,10 +118,7 @@ export async function POST(req: NextRequest) {
           if (part.type === "text-delta") {
             controller.enqueue(encoder.encode(part.text));
           } else if (part.type === "error") {
-            const errMsg =
-              part.error instanceof Error
-                ? part.error.message
-                : String(part.error);
+            const errMsg = part.error instanceof Error ? part.error.message : String(part.error);
             controller.enqueue(encoder.encode(`\x00ERR:${errMsg}`));
             controller.close();
             return;

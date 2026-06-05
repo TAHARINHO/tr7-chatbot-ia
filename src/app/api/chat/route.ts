@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
   if (!apiKey || apiKey === "your_anthropic_api_key_here") {
     return Response.json(
-      { error: "ANTHROPIC_API_KEY manquante. Configurez-la dans .env.local ou dans les variables Vercel." },
+      { error: "ANTHROPIC_API_KEY manquante." },
       { status: 500 }
     );
   }
@@ -28,35 +28,45 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Messages requis" }, { status: 400 });
   }
 
-  try {
-    const result = streamText({
-      model: anthropic(model),
-      system: systemPrompt,
-      messages,
-      maxOutputTokens: 4096,
-      temperature: 0.7,
-    });
+  const result = streamText({
+    model: anthropic(model),
+    system: systemPrompt,
+    messages,
+    maxOutputTokens: 4096,
+    temperature: 0.7,
+  });
 
-    return result.toTextStreamResponse();
-  } catch (err: unknown) {
-    const message =
-      err instanceof Error ? err.message : "Erreur interne du serveur";
+  const encoder = new TextEncoder();
 
-    // Crédit insuffisant
-    if (message.includes("credit balance")) {
-      return Response.json(
-        { error: "Crédits Anthropic insuffisants. Rechargez sur console.anthropic.com/settings/plans" },
-        { status: 402 }
-      );
-    }
-    // Clé invalide
-    if (message.includes("invalid") || message.includes("auth")) {
-      return Response.json(
-        { error: "Clé API invalide. Vérifiez ANTHROPIC_API_KEY." },
-        { status: 401 }
-      );
-    }
+  // Use fullStream to intercept error events before they reach the client
+  const readableStream = new ReadableStream({
+    async start(controller) {
+      try {
+        for await (const part of result.fullStream) {
+          if (part.type === "text-delta") {
+            controller.enqueue(encoder.encode(part.text));
+          } else if (part.type === "error") {
+            // Error event from the AI SDK
+            const errMsg =
+              part.error instanceof Error
+                ? part.error.message
+                : String(part.error);
+            // Send a special marker so the client knows it's an error
+            controller.enqueue(encoder.encode(`\x00ERR:${errMsg}`));
+            controller.close();
+            return;
+          }
+        }
+        controller.close();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        controller.enqueue(encoder.encode(`\x00ERR:${msg}`));
+        controller.close();
+      }
+    },
+  });
 
-    return Response.json({ error: message }, { status: 500 });
-  }
+  return new Response(readableStream, {
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+  });
 }

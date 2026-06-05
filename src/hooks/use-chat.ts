@@ -77,6 +77,20 @@ export function useChat(conversationId: string | null) {
           if (done) break;
 
           const chunk = decoder.decode(value, { stream: true });
+
+          // Check for error marker sent by the API route
+          if (chunk.includes("\x00ERR:")) {
+            const errMsg = chunk.split("\x00ERR:")[1] ?? "Erreur inconnue";
+            let displayMsg = `⚠️ ${errMsg}`;
+            if (errMsg.includes("credit balance")) {
+              displayMsg = "⚠️ **Crédits Anthropic insuffisants.** Rechargez votre compte sur [console.anthropic.com/settings/plans](https://console.anthropic.com/settings/plans)";
+            } else if (errMsg.includes("invalid") || errMsg.includes("auth")) {
+              displayMsg = "⚠️ Clé API invalide. Vérifiez `ANTHROPIC_API_KEY`.";
+            }
+            updateLastAssistantMessage(activeId!, displayMsg);
+            return;
+          }
+
           fullContent += chunk;
           updateLastAssistantMessage(activeId!, fullContent);
         }

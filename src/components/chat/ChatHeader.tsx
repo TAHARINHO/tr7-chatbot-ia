@@ -19,19 +19,34 @@ const iconBtn =
   "inline-flex h-8 w-8 items-center justify-center rounded-xl transition-colors focus-visible:outline-none";
 
 const anthropicModels = MODELS.filter((m) => m.provider === "anthropic");
-const openaiModels = MODELS.filter((m) => m.provider === "openai");
+const openaiModels    = MODELS.filter((m) => m.provider === "openai");
+const googleModels    = MODELS.filter((m) => m.provider === "google");
+
+const PROVIDER_STYLE = {
+  anthropic: { bg: "bg-orange-100",  text: "text-orange-600",  letter: "A", label: "Anthropic — Claude"   },
+  openai:    { bg: "bg-emerald-100", text: "text-emerald-600", letter: "G", label: "OpenAI — ChatGPT"     },
+  google:    { bg: "bg-blue-100",    text: "text-blue-600",    letter: "✦", label: "Google — Gemini"      },
+} as const;
+
+function ProviderBadge({ provider, size = "sm" }: { provider: keyof typeof PROVIDER_STYLE; size?: "sm" | "xs" }) {
+  const s = PROVIDER_STYLE[provider];
+  const dim = size === "xs" ? "h-4 w-4 text-[10px]" : "h-7 w-7 text-xs";
+  return (
+    <div className={`${dim} rounded-lg flex items-center justify-center flex-shrink-0 font-bold ${s.bg} ${s.text}`}>
+      {s.letter}
+    </div>
+  );
+}
 
 export function ChatHeader() {
   const {
-    selectedModel,
-    setModel,
-    activeConversationId,
-    deleteConversation,
-    getActiveConversation,
+    selectedModel, setModel,
+    activeConversationId, deleteConversation, getActiveConversation,
   } = useChatStore();
 
   const currentModel = MODELS.find((m) => m.id === selectedModel) ?? MODELS[0];
   const activeConv = getActiveConversation();
+  const ps = PROVIDER_STYLE[currentModel.provider];
 
   return (
     <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-white/90 backdrop-blur-md flex-shrink-0">
@@ -42,10 +57,7 @@ export function ChatHeader() {
           {activeConv?.title ?? "Nouvelle conversation"}
         </h1>
         {activeConv && (
-          <Badge
-            variant="secondary"
-            className="text-xs px-2 py-0 h-5 font-normal hidden sm:flex flex-shrink-0"
-          >
+          <Badge variant="secondary" className="text-xs px-2 py-0 h-5 font-normal hidden sm:flex flex-shrink-0">
             {activeConv.messages.filter((m) => m.role === "user").length} msg
           </Badge>
         )}
@@ -53,25 +65,11 @@ export function ChatHeader() {
 
       {/* Contrôles */}
       <div className="flex items-center gap-1 flex-shrink-0">
-        {/* Sélecteur modèle */}
+        {/* Sélecteur 3 providers */}
         <DropdownMenu>
-          <DropdownMenuTrigger
-            className="inline-flex h-8 items-center gap-1.5 rounded-xl px-3 text-xs font-medium
-                       text-muted-foreground hover:text-foreground hover:bg-accent
-                       transition-colors focus-visible:outline-none"
-          >
-            <span
-              className={
-                currentModel.provider === "anthropic"
-                  ? "text-orange-500"
-                  : "text-emerald-500"
-              }
-            >
-              {currentModel.provider === "anthropic" ? "A" : "G"}
-            </span>
-            <span className="hidden sm:inline max-w-[120px] truncate">
-              {currentModel.name}
-            </span>
+          <DropdownMenuTrigger className="inline-flex h-8 items-center gap-1.5 rounded-xl px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors focus-visible:outline-none">
+            <span className={`text-xs font-bold ${ps.text}`}>{ps.letter}</span>
+            <span className="hidden sm:inline max-w-[110px] truncate">{currentModel.name}</span>
             <ChevronDownIcon className="h-3 w-3 opacity-50 flex-shrink-0" />
           </DropdownMenuTrigger>
 
@@ -79,107 +77,63 @@ export function ChatHeader() {
             align="end"
             side="bottom"
             sideOffset={6}
-            className="!w-72 bg-white border-border shadow-lg p-1"
+            className="!w-80 bg-white border-border shadow-lg p-1"
           >
-            {/* ── Groupe Anthropic ── */}
+            {/* ── Anthropic ── */}
             <DropdownMenuGroup>
-              <DropdownMenuLabel className="flex items-center gap-2 text-orange-600 font-semibold">
-                <div className="h-4 w-4 rounded bg-orange-100 flex items-center justify-center text-[10px] font-bold text-orange-600">
-                  A
-                </div>
-                Anthropic — Claude
+              <DropdownMenuLabel className={`flex items-center gap-2 font-semibold ${PROVIDER_STYLE.anthropic.text}`}>
+                <ProviderBadge provider="anthropic" size="xs" />
+                {PROVIDER_STYLE.anthropic.label}
               </DropdownMenuLabel>
-
               {anthropicModels.map((model) => (
-                <DropdownMenuItem
+                <ModelRow
                   key={model.id}
-                  onClick={() => setModel(model.id as AIModel)}
-                  className="flex items-center gap-3 py-2.5 px-2 cursor-pointer rounded-lg"
-                >
-                  <div
-                    className={`h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold ${
-                      selectedModel === model.id
-                        ? "bg-orange-100 text-orange-600"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    A
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-medium truncate">{model.name}</span>
-                      {model.badge && (
-                        <Badge
-                          variant="secondary"
-                          className="h-4 text-[10px] px-1.5 bg-orange-50 text-orange-700 border-0 flex-shrink-0"
-                        >
-                          {model.badge}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      {model.description} · {model.contextWindow}
-                    </p>
-                  </div>
-                  {selectedModel === model.id && (
-                    <CheckIcon className="h-4 w-4 text-violet-500 flex-shrink-0" />
-                  )}
-                </DropdownMenuItem>
+                  model={model}
+                  isSelected={selectedModel === model.id}
+                  onSelect={() => setModel(model.id as AIModel)}
+                />
               ))}
             </DropdownMenuGroup>
 
             <DropdownMenuSeparator />
 
-            {/* ── Groupe OpenAI ── */}
+            {/* ── OpenAI ── */}
             <DropdownMenuGroup>
-              <DropdownMenuLabel className="flex items-center gap-2 text-emerald-600 font-semibold">
-                <div className="h-4 w-4 rounded bg-emerald-100 flex items-center justify-center text-[10px] font-bold text-emerald-600">
-                  G
-                </div>
-                OpenAI — ChatGPT
+              <DropdownMenuLabel className={`flex items-center gap-2 font-semibold ${PROVIDER_STYLE.openai.text}`}>
+                <ProviderBadge provider="openai" size="xs" />
+                {PROVIDER_STYLE.openai.label}
               </DropdownMenuLabel>
-
               {openaiModels.map((model) => (
-                <DropdownMenuItem
+                <ModelRow
                   key={model.id}
-                  onClick={() => setModel(model.id as AIModel)}
-                  className="flex items-center gap-3 py-2.5 px-2 cursor-pointer rounded-lg"
-                >
-                  <div
-                    className={`h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold ${
-                      selectedModel === model.id
-                        ? "bg-emerald-100 text-emerald-600"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    G
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-medium truncate">{model.name}</span>
-                      {model.badge && (
-                        <Badge
-                          variant="secondary"
-                          className="h-4 text-[10px] px-1.5 bg-emerald-50 text-emerald-700 border-0 flex-shrink-0"
-                        >
-                          {model.badge}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      {model.description} · {model.contextWindow}
-                    </p>
-                  </div>
-                  {selectedModel === model.id && (
-                    <CheckIcon className="h-4 w-4 text-violet-500 flex-shrink-0" />
-                  )}
-                </DropdownMenuItem>
+                  model={model}
+                  isSelected={selectedModel === model.id}
+                  onSelect={() => setModel(model.id as AIModel)}
+                />
+              ))}
+            </DropdownMenuGroup>
+
+            <DropdownMenuSeparator />
+
+            {/* ── Google Gemini ── */}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className={`flex items-center gap-2 font-semibold ${PROVIDER_STYLE.google.text}`}>
+                <ProviderBadge provider="google" size="xs" />
+                {PROVIDER_STYLE.google.label}
+              </DropdownMenuLabel>
+              {googleModels.map((model) => (
+                <ModelRow
+                  key={model.id}
+                  model={model}
+                  isSelected={selectedModel === model.id}
+                  onSelect={() => setModel(model.id as AIModel)}
+                />
               ))}
             </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Supprimer conversation */}
+        {/* Supprimer */}
         {activeConversationId && (
           <Tooltip>
             <TooltipTrigger
@@ -188,10 +142,48 @@ export function ChatHeader() {
             >
               <Trash2Icon className="h-3.5 w-3.5" />
             </TooltipTrigger>
-            <TooltipContent>Supprimer</TooltipContent>
+            <TooltipContent>Supprimer la conversation</TooltipContent>
           </Tooltip>
         )}
       </div>
     </div>
+  );
+}
+
+function ModelRow({
+  model,
+  isSelected,
+  onSelect,
+}: {
+  model: (typeof MODELS)[0];
+  isSelected: boolean;
+  onSelect: () => void;
+}) {
+  const ps = PROVIDER_STYLE[model.provider];
+  return (
+    <DropdownMenuItem
+      onClick={onSelect}
+      className="flex items-center gap-3 py-2 px-2 cursor-pointer rounded-lg"
+    >
+      <ProviderBadge provider={model.provider} size="sm" />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-medium truncate">{model.name}</span>
+          {model.badge && (
+            <Badge
+              variant="secondary"
+              className={`h-4 text-[10px] px-1.5 border-0 flex-shrink-0 ${ps.bg} ${ps.text}`}
+            >
+              {model.badge}
+            </Badge>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground mt-0.5 truncate">
+          {model.description}
+          <span className="text-muted-foreground/50"> · {model.contextWindow}</span>
+        </p>
+      </div>
+      {isSelected && <CheckIcon className="h-4 w-4 text-violet-500 flex-shrink-0" />}
+    </DropdownMenuItem>
   );
 }

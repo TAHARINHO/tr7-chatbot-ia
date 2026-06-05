@@ -1,5 +1,5 @@
 export type Role = "user" | "assistant" | "system";
-export type Provider = "anthropic" | "openai";
+export type Provider = "anthropic" | "openai" | "google";
 
 export interface Attachment {
   id: string;
@@ -29,15 +29,21 @@ export interface Conversation {
 }
 
 export type AIModel =
-  // Anthropic
+  // ── Anthropic ──
   | "claude-sonnet-4-6"
   | "claude-opus-4-8"
   | "claude-haiku-4-5-20251001"
-  // OpenAI
+  // ── OpenAI ──
   | "gpt-4o"
   | "gpt-4o-mini"
   | "o1"
-  | "o1-mini";
+  | "o1-mini"
+  // ── Google Gemini ──
+  | "gemini-2.5-pro"
+  | "gemini-2.0-flash"
+  | "gemini-1.5-pro"
+  | "gemini-1.5-flash"
+  | "gemini-1.5-flash-8b";
 
 export interface ModelConfig {
   id: AIModel;
@@ -50,7 +56,7 @@ export interface ModelConfig {
 }
 
 export const MODELS: ModelConfig[] = [
-  // ─── Anthropic ───
+  // ─────────────── Anthropic ───────────────
   {
     id: "claude-sonnet-4-6",
     name: "Claude Sonnet 4",
@@ -78,7 +84,8 @@ export const MODELS: ModelConfig[] = [
     provider: "anthropic",
     contextWindow: "200K",
   },
-  // ─── OpenAI ───
+
+  // ─────────────── OpenAI ───────────────
   {
     id: "gpt-4o",
     name: "GPT-4o",
@@ -114,6 +121,53 @@ export const MODELS: ModelConfig[] = [
     supportsVision: false,
     provider: "openai",
     contextWindow: "128K",
+  },
+
+  // ─────────────── Google Gemini ───────────────
+  {
+    id: "gemini-2.5-pro",
+    name: "Gemini 2.5 Pro",
+    description: "Le plus puissant de Google",
+    badge: "Pro",
+    supportsVision: true,
+    provider: "google",
+    contextWindow: "1M",
+  },
+  {
+    id: "gemini-2.0-flash",
+    name: "Gemini 2.0 Flash",
+    description: "Rapide, multimodal, très capable",
+    badge: "Recommandé",
+    supportsVision: true,
+    provider: "google",
+    contextWindow: "1M",
+  },
+  {
+    id: "gemini-1.5-pro",
+    name: "Gemini 1.5 Pro",
+    description: "Contexte ultra-long (2M tokens)",
+    badge: "Long context",
+    supportsVision: true,
+    provider: "google",
+    contextWindow: "2M",
+  },
+  {
+    id: "gemini-1.5-flash",
+    name: "Gemini 1.5 Flash",
+    description: "Rapide et efficace",
+    badge: "Rapide",
+    supportsVision: true,
+    provider: "google",
+    contextWindow: "1M",
+  },
+  {
+    id: "gemini-1.5-flash-8b",
+    name: "Gemini 1.5 Flash-8B",
+    description: "Le plus léger et le moins cher",
+    badge: "Économique",
+    supportsVision: true,
+    provider: "google",
+    contextWindow: "1M",
   },
 ];
 

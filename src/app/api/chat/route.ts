@@ -1,5 +1,6 @@
 import { anthropic } from "@ai-sdk/anthropic";
 import { openai } from "@ai-sdk/openai";
+import { google } from "@ai-sdk/google";
 import { streamText } from "ai";
 import { NextRequest } from "next/server";
 import { AIModel, Attachment, MODELS } from "@/types/chat";
@@ -29,10 +30,11 @@ interface ChatRequestBody {
 
 function getModelInstance(modelId: AIModel) {
   const config = MODELS.find((m) => m.id === modelId);
-  if (config?.provider === "openai") {
-    return openai(modelId);
+  switch (config?.provider) {
+    case "openai":  return openai(modelId);
+    case "google":  return google(modelId);
+    default:        return anthropic(modelId);
   }
-  return anthropic(modelId);
 }
 
 function buildApiMessages(messages: ChatRequestBody["messages"]): ApiMessage[] {
@@ -63,7 +65,7 @@ function buildApiMessages(messages: ChatRequestBody["messages"]): ApiMessage[] {
     if (parts.length > 0) result.push({ role: msg.role, content: parts });
   }
 
-  // Enforce alternation
+  // Alternance stricte user/assistant
   const deduped: ApiMessage[] = [];
   for (const msg of result) {
     const last = deduped[deduped.length - 1];
@@ -85,7 +87,7 @@ export async function POST(req: NextRequest) {
   const modelConfig = MODELS.find((m) => m.id === model);
   const provider = modelConfig?.provider ?? "anthropic";
 
-  // Validate API key for the requested provider
+  // Validation des clés API par provider
   if (provider === "anthropic") {
     const key = process.env.ANTHROPIC_API_KEY;
     if (!key || key === "your_anthropic_api_key_here") {
@@ -96,10 +98,15 @@ export async function POST(req: NextRequest) {
     if (!key || key === "your_openai_api_key_here") {
       return Response.json({ error: "OPENAI_API_KEY manquante." }, { status: 500 });
     }
+  } else if (provider === "google") {
+    const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    if (!key || key === "your_google_api_key_here") {
+      return Response.json({ error: "GOOGLE_GENERATIVE_AI_API_KEY manquante." }, { status: 500 });
+    }
   }
 
   if (!messages || messages.length === 0) {
-    return Response.json({ error: "Messages requis" }, { status: 400 });
+    return Response.json({ error: "Messages requis." }, { status: 400 });
   }
 
   const apiMessages = buildApiMessages(messages);
@@ -107,7 +114,7 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Aucun message valide." }, { status: 400 });
   }
 
-  // o1 models don't support system prompts or temperature
+  // Les modèles o1/o1-mini ne supportent pas system prompt ni temperature
   const isReasoningModel = model === "o1" || model === "o1-mini";
 
   const result = streamText({

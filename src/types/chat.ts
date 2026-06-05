@@ -38,13 +38,9 @@ export type AIModel =
   | "gpt-4o-mini"
   | "o1"
   | "o1-mini"
-  // ── Google Gemini ──
+  // ── Google Gemini (free tier) ──
   | "gemini-3.5-flash"
-  | "gemini-3.1-pro-preview"
-  | "gemini-3-pro-preview"
-  | "gemini-2.5-pro"
-  | "gemini-2.5-flash"
-  | "gemini-2.0-flash";
+  | "gemini-2.5-flash";
 
 export interface ModelConfig {
   id: AIModel;
@@ -128,35 +124,8 @@ export const MODELS: ModelConfig[] = [
   {
     id: "gemini-3.5-flash",
     name: "Gemini 3.5 Flash",
-    description: "Le plus récent et rapide de Google",
+    description: "Dernier modèle Google — rapide et multimodal",
     badge: "Nouveau",
-    supportsVision: true,
-    provider: "google",
-    contextWindow: "1M",
-  },
-  {
-    id: "gemini-3.1-pro-preview",
-    name: "Gemini 3.1 Pro",
-    description: "Gemini 3ème gen — très puissant",
-    badge: "Pro",
-    supportsVision: true,
-    provider: "google",
-    contextWindow: "1M",
-  },
-  {
-    id: "gemini-3-pro-preview",
-    name: "Gemini 3 Pro",
-    description: "Raisonnement avancé, multimodal",
-    badge: "Recommandé",
-    supportsVision: true,
-    provider: "google",
-    contextWindow: "1M",
-  },
-  {
-    id: "gemini-2.5-pro",
-    name: "Gemini 2.5 Pro",
-    description: "Très capable, contexte long",
-    badge: "Capable",
     supportsVision: true,
     provider: "google",
     contextWindow: "1M",
@@ -164,17 +133,8 @@ export const MODELS: ModelConfig[] = [
   {
     id: "gemini-2.5-flash",
     name: "Gemini 2.5 Flash",
-    description: "Rapide et multimodal",
-    badge: "Rapide",
-    supportsVision: true,
-    provider: "google",
-    contextWindow: "1M",
-  },
-  {
-    id: "gemini-2.0-flash",
-    name: "Gemini 2.0 Flash",
-    description: "Stable, polyvalent et efficace",
-    badge: "Stable",
+    description: "Rapide, vision, très capable",
+    badge: "Recommandé",
     supportsVision: true,
     provider: "google",
     contextWindow: "1M",

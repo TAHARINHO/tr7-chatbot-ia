@@ -7,9 +7,11 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { PlusIcon, MessageSquareIcon, Trash2Icon, PanelLeftCloseIcon, PanelLeftOpenIcon, ChevronDownIcon } from "lucide-react";
+import { PlusIcon, MessageSquareIcon, Trash2Icon, PanelLeftCloseIcon, PanelLeftOpenIcon, ChevronDownIcon, HomeIcon } from "lucide-react";
 import { formatDistanceToNow } from "@/lib/date-utils";
 import { useState } from "react";
+import Link from "next/link";
+import { InayaAvatar } from "./Avatars";
 
 const iconBtn = "inline-flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent transition-colors focus-visible:outline-none";
 
@@ -34,9 +36,10 @@ export function Sidebar() {
     });
   };
 
+  // Navigation vers la page de l'agent (avec router push)
   const handleSelectAgent = (id: AgentId) => {
     setAgent(id);
-    createConversation();
+    // La navigation est gérée par le Link dans le render
   };
 
   return (
@@ -52,27 +55,43 @@ export function Sidebar() {
 
         {!sidebarOpen && (
           <>
+            {/* Retour dashboard */}
+            <Tooltip>
+              <TooltipTrigger className={iconBtn} onClick={() => {}}>
+                <Link href="/" className="flex items-center justify-center w-full h-full">
+                  <HomeIcon className="h-4 w-4" />
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right">Accueil agents</TooltipContent>
+            </Tooltip>
             <Tooltip>
               <TooltipTrigger className={iconBtn} onClick={() => createConversation()}>
                 <PlusIcon className="h-4 w-4" />
               </TooltipTrigger>
               <TooltipContent side="right">Nouvelle conversation</TooltipContent>
             </Tooltip>
-            {/* Agents compacts par catégorie */}
-            <div className="mt-2 flex flex-col gap-0.5 items-center">
+            {/* Agents compacts */}
+            <div className="mt-1 flex flex-col gap-0.5 items-center">
               {AGENTS.map((agent) => (
                 <Tooltip key={agent.id}>
-                  <TooltipTrigger
-                    className={cn(
-                      "h-7 w-7 rounded-lg flex items-center justify-center text-xs transition-all focus-visible:outline-none",
-                      selectedAgentId === agent.id ? "ring-2 ring-offset-1 ring-offset-white opacity-100" : "opacity-50 hover:opacity-90"
-                    )}
-                    style={{ background: agent.bgColor, ...(selectedAgentId === agent.id ? { ringColor: agent.bgColor } : {}) }}
-                    onClick={() => handleSelectAgent(agent.id)}
-                  >
-                    {agent.emoji}
+                  <TooltipTrigger className="focus-visible:outline-none">
+                    <Link
+                      href={`/agent/${agent.id}`}
+                      className={cn(
+                        "h-7 w-7 rounded-lg flex items-center justify-center text-xs transition-all",
+                        selectedAgentId === agent.id ? "opacity-100" : "opacity-50 hover:opacity-90"
+                      )}
+                      style={{ background: agent.persona ? "transparent" : agent.bgColor }}
+                      onClick={() => handleSelectAgent(agent.id)}
+                    >
+                      {agent.persona ? (
+                        <InayaAvatar persona={agent.persona} size="xs" />
+                      ) : (
+                        <span className="text-white text-xs">{agent.emoji}</span>
+                      )}
+                    </Link>
                   </TooltipTrigger>
-                  <TooltipContent side="right">{agent.name}</TooltipContent>
+                  <TooltipContent side="right">{agent.persona?.name ?? agent.name}</TooltipContent>
                 </Tooltip>
               ))}
             </div>
@@ -88,14 +107,24 @@ export function Sidebar() {
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-4 pb-3 flex-shrink-0">
           <div className="flex items-center gap-2.5">
-            <div
-              className="h-8 w-8 rounded-xl flex items-center justify-center text-lg flex-shrink-0 shadow-sm"
-              style={{ background: currentAgent.bgColor }}
-            >
-              {currentAgent.emoji}
-            </div>
+            {/* Bouton retour dashboard */}
+            <Link href="/" className={cn(iconBtn, "flex-shrink-0")}>
+              <HomeIcon className="h-4 w-4" />
+            </Link>
+            {currentAgent.persona ? (
+              <InayaAvatar persona={currentAgent.persona} size="sm" />
+            ) : (
+              <div
+                className="h-8 w-8 rounded-xl flex items-center justify-center text-lg flex-shrink-0 shadow-sm"
+                style={{ background: currentAgent.bgColor }}
+              >
+                {currentAgent.emoji}
+              </div>
+            )}
             <div>
-              <p className="text-xs font-bold text-foreground leading-tight">{currentAgent.name}</p>
+              <p className="text-xs font-bold text-foreground leading-tight">
+                {currentAgent.persona?.name ?? currentAgent.name}
+              </p>
               <p className="text-xs text-muted-foreground">TR7 Agents IA</p>
             </div>
           </div>
@@ -135,14 +164,16 @@ export function Sidebar() {
                     />
                   </button>
 
-                  {/* Agents de la catégorie */}
+                  {/* Agents de la catégorie — naviguer vers la page dédiée */}
                   {!isCollapsed && (
                     <div className="space-y-0.5">
                       {catAgents.map((agent) => {
                         const isActive = selectedAgentId === agent.id;
+                        const displayName = agent.persona?.name ?? agent.name;
                         return (
-                          <button
+                          <Link
                             key={agent.id}
+                            href={`/agent/${agent.id}`}
                             onClick={() => handleSelectAgent(agent.id)}
                             className={cn(
                               "flex items-center gap-2 w-full rounded-xl px-2.5 py-1.5 text-left transition-all duration-150",
@@ -151,19 +182,23 @@ export function Sidebar() {
                                 : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                             )}
                           >
-                            <div
-                              className="h-6 w-6 rounded-lg flex items-center justify-center text-xs flex-shrink-0"
-                              style={{ background: agent.bgColor }}
-                            >
-                              {agent.emoji}
-                            </div>
+                            {agent.persona ? (
+                              <InayaAvatar persona={agent.persona} size="xs" />
+                            ) : (
+                              <div
+                                className="h-6 w-6 rounded-lg flex items-center justify-center text-xs flex-shrink-0"
+                                style={{ background: agent.bgColor }}
+                              >
+                                {agent.emoji}
+                              </div>
+                            )}
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold truncate leading-tight">{agent.name}</p>
+                              <p className="text-xs font-semibold truncate leading-tight">{displayName}</p>
                             </div>
                             {isActive && (
                               <div className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: agent.bgColor }} />
                             )}
-                          </button>
+                          </Link>
                         );
                       })}
                     </div>

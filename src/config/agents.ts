@@ -41,6 +41,15 @@ export type AgentId =
 
 export type AgentCategory = "general" | "management" | "contenu" | "business" | "technique" | "rh";
 
+export interface AgentPersona {
+  name: string;
+  role: string;
+  avatarUrl?: string;
+  fullImageUrl?: string;
+  accentColor?: string;
+  bio?: string;
+}
+
 export interface AgentConfig {
   id: AgentId;
   name: string;
@@ -51,15 +60,16 @@ export interface AgentConfig {
   emoji: string;
   tags: string[];
   category: AgentCategory;
+  persona?: AgentPersona;
 }
 
 export const AGENT_CATEGORIES: Record<AgentCategory, { label: string; color: string }> = {
-  general:    { label: "Général",      color: "text-violet-600" },
-  management: { label: "Management IA", color: "text-amber-600" },
+  general:    { label: "Général",         color: "text-violet-600" },
+  management: { label: "Management IA",   color: "text-amber-600" },
   contenu:    { label: "Contenu & Design", color: "text-pink-600" },
-  business:   { label: "Business",     color: "text-emerald-600" },
-  technique:  { label: "Technique",    color: "text-blue-600" },
-  rh:         { label: "RH",           color: "text-rose-600" },
+  business:   { label: "Business",        color: "text-emerald-600" },
+  technique:  { label: "Technique",       color: "text-blue-600" },
+  rh:         { label: "RH",             color: "text-rose-600" },
 };
 
 export const AGENTS: AgentConfig[] = [
@@ -77,14 +87,22 @@ export const AGENTS: AgentConfig[] = [
   },
   {
     id: "assistant-general",
-    name: "AI Assistant",
-    shortName: "AI",
-    description: "Copilot d'entreprise — productivité, documents, coordination agents",
+    name: "INAYA",
+    shortName: "INA",
+    description: "AI Assistant TR7 — productivité, documents, coordination, copilot",
     systemPrompt: ASSISTANT_GENERAL_PROMPT,
-    bgColor: "oklch(0.50 0.20 270)",
-    emoji: "🤖",
-    tags: ["Productivité", "Documents", "Coordination", "Copilot"],
+    bgColor: "linear-gradient(135deg, #1a1200 0%, #2d2000 50%, #1a1200 100%)",
+    emoji: "✨",
+    tags: ["Productivité", "Documents", "Coordination", "Copilot", "Enterprise"],
     category: "general",
+    persona: {
+      name: "INAYA",
+      role: "AI Assistant",
+      avatarUrl: "/avatars/inaya-avatar.jpg",
+      fullImageUrl: "/avatars/inaya-full.jpg",
+      accentColor: "#C9A84C",
+      bio: "Votre assistante IA personnelle, experte en productivité, coordination d'agents et intelligence d'entreprise.",
+    },
   },
 
   // ─── MANAGEMENT IA ───
@@ -92,7 +110,7 @@ export const AGENTS: AgentConfig[] = [
     id: "orchestrateur",
     name: "Orchestrateur IA",
     shortName: "ORC",
-    description: "Chef d'orchestre multi-agents — coordination, fusion de résultats, workflows",
+    description: "Chef d'orchestre multi-agents — coordination, fusion, workflows",
     systemPrompt: ORCHESTRATEUR_PROMPT,
     bgColor: "oklch(0.58 0.20 35)",
     emoji: "🎯",
@@ -241,7 +259,7 @@ export const AGENTS: AgentConfig[] = [
     id: "process-automation",
     name: "Automation",
     shortName: "AUTO",
-    description: "n8n · Make · Zapier · API · Workflows · Synchronisation systèmes",
+    description: "n8n · Make · Zapier · API · Workflows · Synchronisation",
     systemPrompt: PROCESS_AUTOMATION_PROMPT,
     bgColor: "oklch(0.52 0.20 140)",
     emoji: "⚡",

@@ -10,7 +10,9 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import oneLight from "react-syntax-highlighter/dist/esm/styles/prism/one-light";
 import type { Components } from "react-markdown";
 import type { CSSProperties } from "react";
-import { AIAvatar, UserAvatar } from "./Avatars";
+import { AIAvatar, UserAvatar, InayaAvatar } from "./Avatars";
+import { useChatStore } from "@/store/chat-store";
+import { AGENTS } from "@/config/agents";
 
 interface MessageBubbleProps {
   message: Message;
@@ -19,6 +21,8 @@ interface MessageBubbleProps {
 
 export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
   const isUser = message.role === "user";
+  const { selectedAgentId } = useChatStore();
+  const currentAgent = AGENTS.find((a) => a.id === selectedAgentId) ?? AGENTS[0];
 
   return (
     <div
@@ -28,9 +32,11 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
         "items-end"
       )}
     >
-      {/* Avatar */}
+      {/* Avatar — INAYA ou générique */}
       {isUser ? (
         <UserAvatar size="sm" initials="T" />
+      ) : currentAgent.persona ? (
+        <InayaAvatar persona={currentAgent.persona} size="sm" isActive={isStreaming} />
       ) : (
         <AIAvatar size="sm" isActive={isStreaming} />
       )}

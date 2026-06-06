@@ -3,6 +3,7 @@
 import { useChatStore } from "@/store/chat-store";
 import { MODELS, AIModel } from "@/types/chat";
 import { AGENTS } from "@/config/agents";
+import { InayaAvatar } from "./Avatars";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -55,19 +56,31 @@ export function ChatHeader() {
     <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-white/90 backdrop-blur-md flex-shrink-0">
       {/* Titre + Agent badge */}
       <div className="flex items-center gap-2.5 min-w-0">
-        {/* Agent avatar */}
-        <div
-          className="h-7 w-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0"
-          style={{ background: currentAgent.bgColor }}
-        >
-          {currentAgent.emoji}
-        </div>
+        {/* Avatar — INAYA ou générique */}
+        {currentAgent.persona ? (
+          <InayaAvatar persona={currentAgent.persona} size="xs" />
+        ) : (
+          <div
+            className="h-7 w-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0"
+            style={{ background: currentAgent.bgColor }}
+          >
+            {currentAgent.emoji}
+          </div>
+        )}
         <div className="min-w-0">
           <h1 className="text-sm font-semibold truncate text-foreground leading-tight">
-            {activeConv?.title ?? "Nouvelle conversation"}
+            {currentAgent.persona
+              ? (activeConv?.title ?? `${currentAgent.persona.name} — AI Assistant`)
+              : (activeConv?.title ?? "Nouvelle conversation")}
           </h1>
-          <p className="text-xs text-muted-foreground leading-tight hidden sm:block">
-            {currentAgent.name}
+          <p className="text-xs leading-tight hidden sm:block" style={
+            currentAgent.persona
+              ? { color: currentAgent.persona.accentColor ?? "#C9A84C" }
+              : { color: "var(--muted-foreground)" }
+          }>
+            {currentAgent.persona
+              ? `${currentAgent.persona.role} · TR7 Agency`
+              : currentAgent.name}
           </p>
         </div>
         {activeConv && (

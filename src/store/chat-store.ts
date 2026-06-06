@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { Conversation, Message, AIModel, DEFAULT_SYSTEM_PROMPT, Attachment } from "@/types/chat";
+import { AgentId, DEFAULT_AGENT, getAgent } from "@/config/agents";
 import { nanoid } from "nanoid";
 
 interface ChatStore {
@@ -11,6 +12,7 @@ interface ChatStore {
   selectedModel: AIModel;
   systemPrompt: string;
   sidebarOpen: boolean;
+  selectedAgentId: AgentId;
 
   createConversation: () => string;
   selectConversation: (id: string) => void;
@@ -23,6 +25,7 @@ interface ChatStore {
   updateConversationTitle: (conversationId: string, title: string) => void;
   setModel: (model: AIModel) => void;
   setSystemPrompt: (prompt: string) => void;
+  setAgent: (agentId: AgentId) => void;
   toggleSidebar: () => void;
   clearConversations: () => void;
   getActiveConversation: () => Conversation | undefined;
@@ -47,6 +50,7 @@ export const useChatStore = create<ChatStore>()(
       selectedModel: "claude-sonnet-4-6",
       systemPrompt: DEFAULT_SYSTEM_PROMPT,
       sidebarOpen: true,
+      selectedAgentId: "general" as AgentId,
 
       createConversation: () => {
         const conv = createNewConversation(get().selectedModel);
@@ -112,6 +116,10 @@ export const useChatStore = create<ChatStore>()(
 
       setModel: (model) => set({ selectedModel: model }),
       setSystemPrompt: (prompt) => set({ systemPrompt: prompt }),
+      setAgent: (agentId) => {
+        const agent = getAgent(agentId);
+        set({ selectedAgentId: agentId, systemPrompt: agent.systemPrompt });
+      },
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       clearConversations: () =>
         set({ conversations: [], activeConversationId: null }),
@@ -128,6 +136,7 @@ export const useChatStore = create<ChatStore>()(
         selectedModel: s.selectedModel,
         systemPrompt: s.systemPrompt,
         sidebarOpen: s.sidebarOpen,
+        selectedAgentId: s.selectedAgentId,
       }),
     }
   )

@@ -2,21 +2,23 @@
 
 import { useChatStore } from "@/store/chat-store";
 import { Conversation } from "@/types/chat";
+import { AGENTS, AgentId } from "@/config/agents";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { PlusIcon, MessageSquareIcon, Trash2Icon, PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react";
 import { formatDistanceToNow } from "@/lib/date-utils";
-import { AIAvatar } from "./Avatars";
 
 const iconBtn = "inline-flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent transition-colors focus-visible:outline-none";
 
 export function Sidebar() {
   const {
-    conversations, activeConversationId, sidebarOpen,
-    createConversation, selectConversation, deleteConversation, toggleSidebar,
+    conversations, activeConversationId, sidebarOpen, selectedAgentId,
+    createConversation, selectConversation, deleteConversation, toggleSidebar, setAgent,
   } = useChatStore();
+
+  const currentAgent = AGENTS.find((a) => a.id === selectedAgentId) ?? AGENTS[0];
 
   return (
     <>
@@ -24,22 +26,38 @@ export function Sidebar() {
       <div className="flex flex-shrink-0 flex-col items-center pt-3 gap-1 px-2">
         <Tooltip>
           <TooltipTrigger className={iconBtn} onClick={toggleSidebar}>
-            {sidebarOpen
-              ? <PanelLeftCloseIcon className="h-4 w-4" />
-              : <PanelLeftOpenIcon className="h-4 w-4" />}
+            {sidebarOpen ? <PanelLeftCloseIcon className="h-4 w-4" /> : <PanelLeftOpenIcon className="h-4 w-4" />}
           </TooltipTrigger>
-          <TooltipContent side="right">
-            {sidebarOpen ? "Réduire" : "Ouvrir"}
-          </TooltipContent>
+          <TooltipContent side="right">{sidebarOpen ? "Réduire" : "Ouvrir"}</TooltipContent>
         </Tooltip>
 
         {!sidebarOpen && (
-          <Tooltip>
-            <TooltipTrigger className={iconBtn} onClick={() => createConversation()}>
-              <PlusIcon className="h-4 w-4" />
-            </TooltipTrigger>
-            <TooltipContent side="right">Nouvelle conversation</TooltipContent>
-          </Tooltip>
+          <>
+            <Tooltip>
+              <TooltipTrigger className={iconBtn} onClick={() => createConversation()}>
+                <PlusIcon className="h-4 w-4" />
+              </TooltipTrigger>
+              <TooltipContent side="right">Nouvelle conversation</TooltipContent>
+            </Tooltip>
+            {/* Agents compacts */}
+            <div className="mt-2 flex flex-col gap-1">
+              {AGENTS.map((agent) => (
+                <Tooltip key={agent.id}>
+                  <TooltipTrigger
+                    className={cn(
+                      "h-8 w-8 rounded-xl flex items-center justify-center text-sm transition-all focus-visible:outline-none",
+                      selectedAgentId === agent.id ? "ring-2 ring-offset-1" : "opacity-60 hover:opacity-100"
+                    )}
+                    style={{ background: agent.bgColor }}
+                    onClick={() => { setAgent(agent.id as AgentId); createConversation(); }}
+                  >
+                    {agent.emoji}
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{agent.name}</TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
@@ -48,13 +66,18 @@ export function Sidebar() {
         "flex flex-col overflow-hidden transition-all duration-300 ease-in-out",
         sidebarOpen ? "w-64 opacity-100" : "w-0 opacity-0 pointer-events-none"
       )}>
-        {/* Header */}
+        {/* Header avec agent actif */}
         <div className="flex items-center justify-between px-4 pt-4 pb-3">
           <div className="flex items-center gap-2.5">
-            <AIAvatar size="sm" />
+            <div
+              className="h-8 w-8 rounded-xl flex items-center justify-center text-lg flex-shrink-0 shadow-sm"
+              style={{ background: currentAgent.bgColor }}
+            >
+              {currentAgent.emoji}
+            </div>
             <div>
-              <p className="text-sm font-bold text-foreground leading-tight">TR7 Chat</p>
-              <p className="text-xs text-muted-foreground">Claude AI</p>
+              <p className="text-sm font-bold text-foreground leading-tight">{currentAgent.name}</p>
+              <p className="text-xs text-muted-foreground">TR7 Agents IA</p>
             </div>
           </div>
           <Button
@@ -67,25 +90,58 @@ export function Sidebar() {
           </Button>
         </div>
 
-        {/* Separator */}
+        {/* Sélecteur d'agents */}
+        <div className="px-3 pb-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 mb-1.5">
+            Agents IA
+          </p>
+          <div className="flex flex-col gap-0.5">
+            {AGENTS.map((agent) => {
+              const isActive = selectedAgentId === agent.id;
+              return (
+                <button
+                  key={agent.id}
+                  onClick={() => { setAgent(agent.id as AgentId); createConversation(); }}
+                  className={cn(
+                    "flex items-center gap-2.5 w-full rounded-xl px-2.5 py-2 text-left transition-all duration-150",
+                    isActive
+                      ? "bg-accent text-foreground"
+                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                  )}
+                >
+                  <div
+                    className="h-6 w-6 rounded-lg flex items-center justify-center text-xs flex-shrink-0"
+                    style={{ background: agent.bgColor }}
+                  >
+                    {agent.emoji}
+                  </div>
+                  <span className="text-xs font-medium truncate">{agent.name}</span>
+                  {isActive && (
+                    <div className="ml-auto h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: agent.bgColor }} />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Séparateur */}
         <div className="mx-4 h-px bg-border" />
 
-        {/* Label */}
-        <div className="px-4 pt-3 pb-1">
+        {/* Conversations */}
+        <div className="px-4 pt-2 pb-1">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             Conversations
           </p>
         </div>
 
-        {/* List */}
         <ScrollArea className="flex-1 px-2 pb-2 scrollbar-thin">
           {conversations.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
-              <div className="h-12 w-12 rounded-2xl bg-accent flex items-center justify-center mb-3">
-                <MessageSquareIcon className="h-5 w-5 text-muted-foreground" />
+            <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+              <div className="h-10 w-10 rounded-2xl bg-accent flex items-center justify-center mb-2">
+                <MessageSquareIcon className="h-4 w-4 text-muted-foreground" />
               </div>
-              <p className="text-sm font-medium text-muted-foreground">Aucune conversation</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">Cliquez + pour commencer</p>
+              <p className="text-xs text-muted-foreground">Aucune conversation</p>
             </div>
           ) : (
             <div className="space-y-0.5 pt-1">
@@ -120,14 +176,11 @@ function ConversationItem({
   conv: Conversation; isActive: boolean; onSelect: () => void; onDelete: () => void;
 }) {
   const lastMsg = conv.messages[conv.messages.length - 1];
-
   return (
     <div
       className={cn(
         "group relative flex items-start gap-2.5 rounded-xl px-3 py-2.5 cursor-pointer transition-all duration-150",
-        isActive
-          ? "bg-accent text-foreground shadow-sm"
-          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+        isActive ? "bg-accent text-foreground shadow-sm" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
       )}
       onClick={onSelect}
     >
@@ -142,9 +195,7 @@ function ConversationItem({
             {lastMsg.content.slice(0, 35)}{lastMsg.content.length > 35 ? "…" : ""}
           </p>
         )}
-        <p className="text-xs text-muted-foreground/40 mt-0.5">
-          {formatDistanceToNow(conv.updatedAt)}
-        </p>
+        <p className="text-xs text-muted-foreground/40 mt-0.5">{formatDistanceToNow(conv.updatedAt)}</p>
       </div>
       <button
         onClick={(e) => { e.stopPropagation(); onDelete(); }}

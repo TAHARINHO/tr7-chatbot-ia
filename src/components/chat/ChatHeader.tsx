@@ -2,6 +2,7 @@
 
 import { useChatStore } from "@/store/chat-store";
 import { MODELS, AIModel } from "@/types/chat";
+import { AGENTS } from "@/config/agents";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -42,22 +43,35 @@ export function ChatHeader() {
   const {
     selectedModel, setModel,
     activeConversationId, deleteConversation, getActiveConversation,
+    selectedAgentId,
   } = useChatStore();
 
   const currentModel = MODELS.find((m) => m.id === selectedModel) ?? MODELS[0];
   const activeConv = getActiveConversation();
   const ps = PROVIDER_STYLE[currentModel.provider];
+  const currentAgent = AGENTS.find((a) => a.id === selectedAgentId) ?? AGENTS[0];
 
   return (
     <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-white/90 backdrop-blur-md flex-shrink-0">
-      {/* Titre */}
+      {/* Titre + Agent badge */}
       <div className="flex items-center gap-2.5 min-w-0">
-        <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
-        <h1 className="text-sm font-semibold truncate text-foreground">
-          {activeConv?.title ?? "Nouvelle conversation"}
-        </h1>
+        {/* Agent avatar */}
+        <div
+          className="h-7 w-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0"
+          style={{ background: currentAgent.bgColor }}
+        >
+          {currentAgent.emoji}
+        </div>
+        <div className="min-w-0">
+          <h1 className="text-sm font-semibold truncate text-foreground leading-tight">
+            {activeConv?.title ?? "Nouvelle conversation"}
+          </h1>
+          <p className="text-xs text-muted-foreground leading-tight hidden sm:block">
+            {currentAgent.name}
+          </p>
+        </div>
         {activeConv && (
-          <Badge variant="secondary" className="text-xs px-2 py-0 h-5 font-normal hidden sm:flex flex-shrink-0">
+          <Badge variant="secondary" className="text-xs px-2 py-0 h-5 font-normal hidden md:flex flex-shrink-0">
             {activeConv.messages.filter((m) => m.role === "user").length} msg
           </Badge>
         )}
